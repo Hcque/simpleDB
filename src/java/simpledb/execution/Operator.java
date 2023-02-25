@@ -17,13 +17,17 @@ public abstract class Operator implements OpIterator {
     private static final long serialVersionUID = 1L;
 
     public boolean hasNext() throws DbException, TransactionAbortedException {
-        // if (!this.open)
-        //     throw new IllegalStateException("Operator not yet open");
-        
-        // if (next == null)
-        //     next = fetchNext();
-        // return next != null;
-        return false;
+         if (!this.open)
+             throw new IllegalStateException("Operator not yet open");
+         try {
+             if (next == null)
+                 next = fetchNext();
+         }
+         catch (NoSuchElementException e )
+         {
+             return false;
+         }
+         return next != null;
     }
 
     public Tuple next() throws DbException, TransactionAbortedException,

@@ -78,7 +78,7 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        if (pages_.contains(pid)) 
+        if (pages_.containsKey(pid))
         {
             return pages_.get(pid);
         }
@@ -201,6 +201,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+
     }
 
     /**
