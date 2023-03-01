@@ -25,7 +25,7 @@ public abstract class Operator implements OpIterator {
          }
          catch (NoSuchElementException e )
          {
-             return false;
+             return false; // inserts should be here
          }
          return next != null;
     }

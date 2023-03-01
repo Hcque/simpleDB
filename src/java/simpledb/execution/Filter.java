@@ -101,5 +101,4 @@ public class Filter extends Operator {
         // some code goes here
         child_ = children[0];
     }
-
 }

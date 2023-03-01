@@ -87,6 +87,8 @@ public class TableStats {
         // necessarily have to (for example) do everything
         // in a single scan of the table.
         // some code goes here
+
+
     }
 
     /**

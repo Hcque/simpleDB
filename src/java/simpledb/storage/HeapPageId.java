@@ -26,6 +26,12 @@ public class HeapPageId implements PageId {
         return tableId_;
     }
 
+//    public int setTableId(int tid) {
+//        // some code goes here
+//        return tableId_ = tid;
+//    }
+
+
     /**
      * @return the page number in the table getTableId() associated with
      *   this PageId

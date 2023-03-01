@@ -50,6 +50,7 @@ public class SeqScan implements OpIterator {
         tableAlias_ = tableAlias;
         heapfile_ = (HeapFile)Database.getCatalog().getDatabaseFile(tableid_);
         heapIterator_ = heapfile_.iterator(tid);
+
     }
 
     /**
@@ -95,6 +96,7 @@ public class SeqScan implements OpIterator {
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
         heapIterator_.open();
+
     }
 
     /**

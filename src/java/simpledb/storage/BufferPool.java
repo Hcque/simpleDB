@@ -9,6 +9,7 @@ import simpledb.transaction.TransactionId;
 
 import java.io.*;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -66,7 +67,8 @@ public class BufferPool {
      * transaction.
      * <p>
      * The retrieved page should be looked up in the buffer pool.  If it
-     * is present, it should be returned.  If it is not present, it should
+     * is present, it should b
+     * e returned.  If it is not present, it should
      * be added to the buffer pool and returned.  If there is insufficient
      * space in the buffer pool, a page should be evicted and the new page
      * should be added in its place.
@@ -90,7 +92,6 @@ public class BufferPool {
             Page page = dbfile.readPage(pid);
             pages_.put(pid, page);
             // should has size bounded // evictoage
-
             return page;
         }    
         
@@ -158,6 +159,13 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile dbfile = Database.getCatalog().getDatabaseFile(tableId);
+        List<Page> pgs =  dbfile.insertTuple(tid, t);
+        for (Page p: pgs)
+        {
+            pages_.put(p.getId(), p);
+        }
+
     }
 
     /**
@@ -177,6 +185,13 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        int tableId = t.getRecordId().getPageId().getTableId();
+        DbFile dbfile = Database.getCatalog().getDatabaseFile(tableId);
+        List<Page> pgs  = dbfile.deleteTuple(tid, t);
+        for (Page p: pgs)
+        {
+            pages_.put(p.getId(), p);
+        }
     }
 
     /**
@@ -211,6 +226,9 @@ public class BufferPool {
     private synchronized void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        DbFile dbfile =  Database.getCatalog().getDatabaseFile( pid.getTableId() );
+        dbfile.writePage( pages_.get(pid) );
+
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -218,6 +236,14 @@ public class BufferPool {
     public synchronized void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        for (PageId pid: pages_.keySet() )
+        {
+            Page page = pages_.get(pid);
+            if (page.isDirty() != null)
+            {
+                flushPage(page.getId());
+            }
+        }
     }
 
     /**
@@ -227,6 +253,7 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+
     }
 
 }

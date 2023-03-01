@@ -20,6 +20,11 @@ public class Delete extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    private TupleDesc _td;
+    private OpIterator _child;
+//    private int _tid;
+    private TransactionId _txnid;
+
     /**
      * Constructor specifying the transaction that this delete belongs to as
      * well as the child to read from.
@@ -31,23 +36,32 @@ public class Delete extends Operator {
      */
     public Delete(TransactionId t, OpIterator child) {
         // some code goes here
+        _txnid = t;
+        _child = child;
     }
 
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return new TupleDesc( new Type[] {Type.INT_TYPE } );
+
     }
 
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
+        _child.open();
+        super.open();
+
     }
 
     public void close() {
         // some code goes here
+        _child.close();
+        super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+        _child.rewind();
     }
 
     /**
@@ -61,18 +75,43 @@ public class Delete extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+
+        // some code goes here
+        Tuple ans = new Tuple(new TupleDesc(
+                new Type[]{Type.INT_TYPE},
+                new String[]{""}
+        ));
+
+        int cnt = 0;
+        boolean _has_next_flag = _child.hasNext();
+        if ( ! _has_next_flag) return null;
+        while (_has_next_flag) {
+            Tuple t = _child.next();
+            try {
+                Database.getBufferPool().deleteTuple(_txnid, t);
+                cnt ++ ;
+            } catch ( IOException e )
+            {
+                e.printStackTrace();
+            }
+
+            _has_next_flag = _child.hasNext();
+        }
+        ans.setField(0, new IntField(cnt));
+        return ans;
     }
 
     @Override
     public OpIterator[] getChildren() {
         // some code goes here
-        return null;
+        return new OpIterator[] { _child } ;
+
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
         // some code goes here
+        _child = children[0];
     }
 
 }

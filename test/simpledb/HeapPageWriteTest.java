@@ -90,6 +90,49 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
         }
     }
 
+
+    @Test public void addTupleSlotCheck() throws Exception {
+        HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
+        int free = page.getNumEmptySlots();
+
+        // NOTE(ghuo): this nested loop existence check is slow, but it
+        // shouldn't make a difference for n = 504 slots.
+
+        for (int i = 0; i < free; ++i) {
+            Tuple addition = Utility.getHeapTuple(i, 2);
+            page.insertTuple(addition);
+            assertEquals(free-i-1, page.getNumEmptySlots());
+
+            // loop through the iterator to ensure that the tuple actually exists
+            // on the page
+            Iterator<Tuple >it = page.iterator();
+            boolean found = false;
+            while (it.hasNext()) {
+                Tuple tup = it.next();
+                if (TestUtil.compareTuples(addition, tup)) {
+                    found = true;
+
+                    // verify that the RecordId is sane
+                    assertEquals(page.getId(), tup.getRecordId().getPageId());
+                    break;
+                }
+            }
+            assertTrue(found);
+        }
+
+        assertEquals(0, page.getNumEmptySlots() );
+
+
+        // now, the page should be full.
+        try {
+            page.insertTuple(Utility.getHeapTuple(0, 2));
+            throw new Exception("page should be full; expected DbException");
+        } catch (DbException e) {
+            // explicitly ignored
+        }
+    }
+
+
     /**
      * Unit test for HeapPage.deleteTuple() with false tuples
      */
@@ -130,6 +173,42 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
             // explicitly ignored
         }
     }
+
+
+//    @Test public void deleteTupleSmall() throws Exception {
+//        HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
+//        int free = page.getNumEmptySlots();
+//
+//        // first, build a list of the tuples on the page.
+//        Iterator<Tuple> it = page.iterator();
+//        LinkedList<Tuple> tuples = new LinkedList<>();
+//        int cnt = 0;
+//        while (it.hasNext()) {
+//            if (cnt == 2) break;
+//
+//            tuples.add(it.next());
+//            cnt++;
+//        }
+//
+//        Tuple first = tuples.getFirst();
+//
+//        // now, delete them one-by-one from both the front and the end.
+//        int deleted = 0;
+//        while (tuples.size() > 0) {
+//            page.deleteTuple(tuples.removeFirst());
+//            page.deleteTuple(tuples.removeLast());
+//            deleted += 2;
+//            assertEquals(free + deleted, page.getNumEmptySlots());
+//        }
+//
+//        // now, the page should be empty.
+//        try {
+//            page.deleteTuple(first);
+//            throw new Exception("page should be empty; expected DbException");
+//        } catch (DbException e) {
+//            // explicitly ignored
+//        }
+//    }
 
     /**
      * JUnit suite target
