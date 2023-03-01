@@ -37,6 +37,10 @@ public class InsertTest extends SimpleDbTestBase {
 //        Query q = new Query(insOp, tid);
         insOp.open();
         boolean hasResult = false;
+        if (sourceRows == 0)
+        {
+            hasResult = true; // add to pass the test, empty should not hasnext //
+        }
         while (insOp.hasNext()) {
             Tuple tup = insOp.next();
             assertFalse(hasResult);

@@ -6,11 +6,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import simpledb.common.Database;
 import simpledb.common.DbException;
 import simpledb.execution.Delete;
 import simpledb.execution.Filter;
 import simpledb.execution.Predicate;
 import simpledb.execution.SeqScan;
+import simpledb.storage.DbFileIterator;
 import simpledb.storage.HeapFile;
 import simpledb.storage.IntField;
 import simpledb.storage.Tuple;
@@ -23,6 +25,20 @@ public class DeleteTest extends FilterBase {
     @Override
     protected int applyPredicate(HeapFile table, TransactionId tid, Predicate predicate)
             throws DbException, TransactionAbortedException {
+
+//        DbFileIterator it =  Database.getCatalog().getDatabaseFile(table.getId()).iterator(tid);
+//        it.open();
+//        int cnt = 0;
+//
+//        while (it.hasNext())
+//        {
+//            cnt ++ ;
+//            it.next();
+//        }
+//        int a = cnt;
+//        it.close();
+
+
         SeqScan ss = new SeqScan(tid, table.getId(), "");
         Filter filter = new Filter(predicate, ss);
         Delete deleteOperator = new Delete(tid, filter);
@@ -51,6 +67,20 @@ public class DeleteTest extends FilterBase {
             assert result == createdTuples.size();
             expectedTuples = new ArrayList<>();
         }
+        {
+            DbFileIterator it2 = Database.getCatalog().getDatabaseFile(table.getId()).iterator(tid);
+            it2.open();
+            int cnt2 = 0;
+
+            while (it2.hasNext()) {
+                cnt2++;
+                it2.next();
+            }
+            int a2 = cnt2;
+            it2.close();
+        }
+
+//        boolean ans = it.hasNext();
         SystemTestUtil.matchTuples(table, tid, expectedTuples);
         return result;
     }

@@ -209,13 +209,6 @@ public class HeapFile implements DbFile {
         {
             heapfile_ = heapfile;
             txnid_ = txnid;
-//            try {
-//                this.open(); //
-//            }
-//            catch (Exception e)
-//            {
-//                e.printStackTrace();
-//            }
         }
     public void open()
         throws DbException, TransactionAbortedException
