@@ -9,6 +9,7 @@ public class LockManager {
 
     private ConcurrentHashMap<PageId, PageLock> _locks;
 
+
     private synchronized void acquire(TransactionId txnid, PageId pageid)
     {
 
