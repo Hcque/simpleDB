@@ -4,6 +4,7 @@ import simpledb.execution.OpIterator;
 import simpledb.execution.Predicate;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -19,23 +20,24 @@ public class IntHistogram {
     private int _count;
 
 //    private ArrayList<Integer> _y;
-    private HashMap<Double, Integer> _key_to_idx;
-
+//    private HashMap<Double, Integer> _key_to_idx;
 
 
 //ass defi
-    private class Bar
-    {
-        public double _key;
-        public int _value;
-        Bar(double _k, Integer _v)
-        {
-            _key  = _k;
-            _value = _v;
+//    private class Bar
+//    {
+//        public double _key;
+//        public int _value;
+//        Bar(double _k, Integer _v)
+//        {
+//            _key  = _k;
+//            _value = _v;
+//
+//        }
+//    }
+//    private ArrayList<Bar> _y;
 
-        }
-    }
-    private ArrayList<Bar> _y;
+    private int _y[];
 
     /**
      * Create a new IntHistogram.
@@ -60,26 +62,40 @@ public class IntHistogram {
         _buckets = buckets;
         _interval = (_max - _min) * 1.0 / buckets;
 //        _y = new ArrayList<>();
-        _key_to_idx = new HashMap<>();
-        _y = new ArrayList<>();
+//        _key_to_idx = new HashMap<>();
+//        _y = new ArrayList<>();
 
-        for (int i = 0; i < _buckets; i ++ )
-        {
-            _y.add( new Bar(i*_interval ,0) );
-            _key_to_idx.put(i * _interval, i);
-        }
+        _y = new int[buckets];
+
         // | 0 | 0 |
         // _bk = 2
     }
     public int findIndex(int v)
     {
-
-        for (double _k: _key_to_idx.keySet()) {
-            if (v >= _k) {
-                return _key_to_idx.get(_k);
-            }
+//        assert v >= _min && v <= _max;
+        if (v < _min || v > _max)
+        {
+            throw new IllegalArgumentException();
         }
-        return -1;
+        if (v == _max) return _buckets-1;
+        return (int) ((v-_min) / _interval);
+
+//        if ()
+
+//        ArrayList<Double> _s = new ArrayList<>();
+//        for (double _d: _key_to_idx.keySet()) _s.add(_d);
+//        _s.sort(Comparator.naturalOrder());
+//
+//        System.err.println("[findIndex] max of bar: " + _s.get(_s.size()-1));
+//        for (int i = 0; i < _s.size(); i ++ ) {
+//            if (_s.get(i) > v)
+//            {
+//                assert i>= 1;
+//                return i-1;
+//            }
+//        }
+//        assert( false );
+//        return -1;
     }
 
     /**
@@ -89,7 +105,7 @@ public class IntHistogram {
     public void addValue(int v) {
     	// some code goes here
         int i = findIndex(v);
-        _y.get(i)._value ++;
+        _y[i] ++;
         _count ++ ;
         return;
     }
@@ -106,29 +122,34 @@ public class IntHistogram {
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
     	// some code goes here
-        int i = findIndex(v);
+        int i = 0;
         switch (op)
         {
             case EQUALS:
                 if (v < _min || v > _max) return 0.0;
-                return _y.get(i)._value * 1.0 / _count ;
+                i = findIndex(v);
+                return _y[i] * 1.0 / _count ;
             case NOT_EQUALS:
                 if (v < _min || v > _max) return 1.0;
-                return 1.0 - ( _y.get(i)._value * 1.0 / _count );
+                i = findIndex(v);
+
+                return 1.0 - ( _y[i] * 1.0 / _count );
             case GREATER_THAN:
             case GREATER_THAN_OR_EQ:
                 if (v < _min ) return 1.0;
                 else if (v > _max) return 0.0;
                 else {
+                    i = findIndex(v);
                     double _ans = 0.0;
-                    for (int j = i+1; j < _y.size(); j ++ )
+                    for (int j = i+1; j < _y.length; j ++ )
                     {
-                        _ans += _y.get(j)._value;
+                        _ans += _y[j];
                     }
-                    double _last = 0.0;
-                    if (i == _y.size()-1) _last = _max;
-                    else _last = _y.get(i+1)._key;
-                    _ans += ( _y.get(i)._value * 1.0 * (_last - v) / _interval );
+//                    double _last = 0.0;
+//                    if (i == _y.length-1) _last = _max;
+//                    else _last = _y.get(i+1)._key;
+//                    _ans += ( _y.get(i)._value * 1.0 * (_last - v) / _interval );
+                    _ans += _y[i]*1.0 / 2;
                     return _ans / _count ;
                 }
 
@@ -137,13 +158,14 @@ public class IntHistogram {
                 if (v < _min ) return 0.0;
                 else if (v > _max) return 1.0;
                 else {
+                    i = findIndex(v);
                     double _ans = 0.0;
                     for (int j = 0; j < i ; j ++ )
                     {
-                        _ans += _y.get(j)._value;
+                        _ans += _y[j];
                     }
 
-                    _ans += ( _y.get(i)._value * 1.0 * (v - _y.get(i)._key) / _interval );
+                    _ans += ( _y[i] * 1.0 * (v - i*_interval) / _interval );
                     return _ans / _count ;
                 }
             case LIKE:
@@ -167,8 +189,8 @@ public class IntHistogram {
     {
         // some code goes here
         double ans = 0.0;
-        for (Bar _b: _y) {
-            ans += _b._value;
+        for (int i: _y) {
+            ans += i;
         }
         return ans / _buckets;
     }
@@ -180,10 +202,10 @@ public class IntHistogram {
         // some code goes here
         String ans = "";
 
-//        for (int e: _y)
-//        {
-//            ans += e + " ";
-//        }
+        for (int e: _y)
+        {
+            ans += e + " ";
+        }
         return ans;
     }
 
