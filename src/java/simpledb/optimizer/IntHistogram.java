@@ -13,6 +13,15 @@ import java.util.Iterator;
 public class IntHistogram {
 
     private int _buckets;
+
+    public int get_min() {
+        return _min;
+    }
+
+    public int get_max() {
+        return _max;
+    }
+
     private int _min;
     private int _max;
 

@@ -11,7 +11,7 @@ import java.lang.reflect.*;
 
 /*
 LogFile implements the recovery subsystem of SimpleDb.  This class is
-able to write different log records as needed, but it is the
+able to write different log records as needed,but it is the
 responsibility of the caller to ensure that write ahead logging and
 two-phase locking discipline are followed.  <p>
 

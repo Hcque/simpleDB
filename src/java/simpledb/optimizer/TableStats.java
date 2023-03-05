@@ -1,12 +1,16 @@
 package simpledb.optimizer;
 
 import simpledb.common.Database;
+import simpledb.common.DbException;
 import simpledb.common.Type;
 import simpledb.execution.Predicate;
 import simpledb.execution.SeqScan;
 import simpledb.storage.*;
 import simpledb.transaction.Transaction;
+import simpledb.transaction.TransactionAbortedException;
+import simpledb.transaction.TransactionId;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -68,6 +72,16 @@ public class TableStats {
      */
     static final int NUM_HIST_BINS = 100;
 
+
+    private int _numPages;
+    private int _numTuples;
+    private int _ioCostPerPage;
+
+    private HashMap<Integer, IntHistogram> _field_to_hist;
+    private int _min_vec[];
+    private int _max_vec[];
+
+
     /**
      * Create a new TableStats object, that keeps track of statistics on each
      * column of a table
@@ -87,7 +101,57 @@ public class TableStats {
         // necessarily have to (for example) do everything
         // in a single scan of the table.
         // some code goes here
+        _ioCostPerPage = ioCostPerPage;
+        _field_to_hist = new HashMap<>();
 
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableid);
+        _numPages = dbFile.numPages();
+
+        int _len = dbFile.getTupleDesc().numFields();
+        _min_vec = new int[_len];
+        for (int i = 0; i < _len; i ++ ) _min_vec[i] = Integer.MAX_VALUE;
+        _max_vec = new int[_len];
+        for (int i = 0; i < _len; i ++ ) _min_vec[i] = Integer.MIN_VALUE;
+
+        SeqScan _scan_op = new SeqScan(new TransactionId(), tableid);
+        _numTuples = 0;
+        try {
+            _scan_op.open();
+            while (_scan_op.hasNext()) {
+                Tuple _t = _scan_op.next();
+                _numTuples ++ ;
+                for (int i = 0; i < _len; i++) {
+                    _min_vec[i] = Math.min(_min_vec[i], ((IntField)_t.getField(i)).getValue());
+                    _max_vec[i] = Math.max(_max_vec[i], ((IntField)_t.getField(i)).getValue());
+                }
+            }
+        }
+        catch (DbException |  TransactionAbortedException e)
+        {
+            _scan_op.close();
+            e.printStackTrace();
+        }
+        _scan_op.close();
+        for (int i = 0; i < _len; i++) {
+            _field_to_hist.put(i, new IntHistogram(NUM_HIST_BINS, _min_vec[i], _max_vec[i]));
+        }
+
+        SeqScan _scan_op2 = new SeqScan(new TransactionId(), tableid);
+        try {
+            _scan_op2.open();
+            while (_scan_op2.hasNext()) {
+                Tuple _t = _scan_op2.next();
+                for (int i = 0; i < _len; i++) {
+                    _field_to_hist.get(i).addValue( ((IntField)_t.getField(i)).getValue() );
+                }
+            }
+        }
+        catch (DbException |  TransactionAbortedException e)
+        {
+            _scan_op2.close();
+            e.printStackTrace();
+        }
+        _scan_op2.close();
 
     }
 
@@ -105,7 +169,7 @@ public class TableStats {
      */
     public double estimateScanCost() {
         // some code goes here
-        return 0;
+        return _numPages * _ioCostPerPage;
     }
 
     /**
@@ -119,7 +183,7 @@ public class TableStats {
      */
     public int estimateTableCardinality(double selectivityFactor) {
         // some code goes here
-        return 0;
+        return (int) (_numTuples * selectivityFactor);
     }
 
     /**
@@ -134,7 +198,14 @@ public class TableStats {
      * */
     public double avgSelectivity(int field, Predicate.Op op) {
         // some code goes here
-        return 1.0;
+        int _numSamples = 10;
+        double _ans = 0.0;
+        int _min = _field_to_hist.get(field).get_min();
+        int _max = _field_to_hist.get(field).get_max();
+        int _gap = (_max - _min) / _numSamples;
+        for (int v = _min; v < _max; v += _gap )
+            _ans += _field_to_hist.get(field).estimateSelectivity(op, v);
+        return _ans / _numSamples ;
     }
 
     /**
@@ -152,7 +223,7 @@ public class TableStats {
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
         // some code goes here
-        return 1.0;
+        return  _field_to_hist.get(field).estimateSelectivity( op, ((IntField)constant).getValue() );
     }
 
     /**
@@ -160,7 +231,7 @@ public class TableStats {
      * */
     public int totalTuples() {
         // some code goes here
-        return 0;
+        return _numTuples;
     }
 
 }

@@ -7,6 +7,7 @@ import simpledb.common.DeadlockException;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 
 import java.util.List;
@@ -138,6 +139,24 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid, boolean commit) {
         // some code goes here
         // not necessary for lab1|lab2
+
+        for (PageId pid : pages_.keySet()) {
+            Page page = pages_.get(pid);
+            if (commit) {
+                if (page.isDirty() != null) {
+                    try {
+                        flushPage(page.getId());
+                        page.setBeforeImage();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            // release lock of all pages by tid
+
+        }
+
     }
 
     /**
@@ -227,6 +246,17 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         DbFile dbfile =  Database.getCatalog().getDatabaseFile( pid.getTableId() );
+
+        Page p = dbfile.readPage(pid);
+        // WAL
+        TransactionId  dirtier = p.isDirty();
+        if (dirtier != null)
+        {
+            Database.getLogFile().logWrite(dirtier, p.getBeforeImage(), p); // undo log, write-before , physical
+            Database.getLogFile().force();
+        }
+
+
         dbfile.writePage( pages_.get(pid) );
 
     }
