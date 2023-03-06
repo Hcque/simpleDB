@@ -1,5 +1,6 @@
 package simpledb.common;
 
+import simpledb.lockmanager.LockManager;
 import simpledb.storage.BufferPool;
 import simpledb.storage.LogFile;
 
@@ -20,11 +21,12 @@ public class Database {
     private static final AtomicReference<Database> _instance = new AtomicReference<>(new Database());
     private final Catalog _catalog;
     private final BufferPool _bufferpool;
-
+    private final LockManager _lockmanager;
     private final static String LOGFILENAME = "log";
     private final LogFile _logfile;
 
     private Database() {
+        _lockmanager = new LockManager();
         _catalog = new Catalog();
         _bufferpool = new BufferPool(BufferPool.DEFAULT_PAGES);
         LogFile tmp = null;
@@ -42,6 +44,11 @@ public class Database {
     public static LogFile getLogFile() {
         return _instance.get()._logfile;
     }
+
+    public static LockManager getLockManager() {
+        return _instance.get()._lockmanager;
+    }
+
 
     /** Return the buffer pool of the static Database instance */
     public static BufferPool getBufferPool() {

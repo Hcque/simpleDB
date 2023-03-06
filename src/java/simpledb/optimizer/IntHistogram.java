@@ -154,11 +154,12 @@ public class IntHistogram {
                     {
                         _ans += _y[j];
                     }
-//                    double _last = 0.0;
-//                    if (i == _y.length-1) _last = _max;
-//                    else _last = _y.get(i+1)._key;
-//                    _ans += ( _y.get(i)._value * 1.0 * (_last - v) / _interval );
-                    _ans += _y[i]*1.0 / 2;
+
+//                    _ans += _y[i]*1.0 / 2;
+
+                    double _bright_minus_const = _interval - (v - _interval * i ) ;
+                    double _fraction = _bright_minus_const / _interval;
+                    _ans += _fraction * _y[i];
                     return _ans / _count ;
                 }
 

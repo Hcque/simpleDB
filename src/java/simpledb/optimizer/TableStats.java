@@ -111,7 +111,7 @@ public class TableStats {
         _min_vec = new int[_len];
         for (int i = 0; i < _len; i ++ ) _min_vec[i] = Integer.MAX_VALUE;
         _max_vec = new int[_len];
-        for (int i = 0; i < _len; i ++ ) _min_vec[i] = Integer.MIN_VALUE;
+        for (int i = 0; i < _len; i ++ ) _max_vec[i] = Integer.MIN_VALUE;
 
         SeqScan _scan_op = new SeqScan(new TransactionId(), tableid);
         _numTuples = 0;
