@@ -4,9 +4,11 @@ import simpledb.common.Database;
 import simpledb.common.Permissions;
 import simpledb.common.DbException;
 import simpledb.common.DeadlockException;
+import simpledb.lockmanager.LockManager;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
+import javax.swing.*;
 import javax.xml.crypto.Data;
 import java.io.*;
 
@@ -81,6 +83,33 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+        boolean writeLock = false;
+        if (perm == Permissions.READ_WRITE) writeLock = true;
+        LockManager _lk_manager = Database.getLockManager();
+
+        long _start = System.currentTimeMillis();
+
+        while (true)
+        {
+            try {
+                if (!writeLock && _lk_manager.lockShared(tid, pid)) {
+                    break;
+                }
+                if (writeLock && _lk_manager.lockExclusive(tid, pid)) {
+                    break;
+                }
+            }
+            catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+            if (System.currentTimeMillis() - _start > LockManager.MAX_LOCK_WAIT_TIME )
+            {
+                throw new TransactionAbortedException();
+
+            }
+        }
+
         if (pages_.containsKey(pid))
         {
             return pages_.get(pid);
@@ -88,7 +117,6 @@ public class BufferPool {
         else 
         {
             // read from disk?
-            
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = dbfile.readPage(pid);
             pages_.put(pid, page);
@@ -110,6 +138,7 @@ public class BufferPool {
     public  void unsafeReleasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        Database.getLockManager().unlock(tid, pid);
     }
 
     /**
@@ -120,13 +149,16 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) {
         // some code goes here
         // not necessary for lab1|lab2
+        Database.getLockManager().txnComplete(tid);
+
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+
+        return Database.getLockManager().isHoldLock(tid, p);
     }
 
     /**

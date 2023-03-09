@@ -9,6 +9,7 @@ import java.util.*;
 
 import javax.swing.*;
 import javax.swing.tree.*;
+import javax.xml.crypto.Data;
 
 /**
  * The JoinOptimizer class is responsible for ordering a series of joins
@@ -130,7 +131,9 @@ public class JoinOptimizer {
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic
             // nested-loops join.
-            return -1.0;
+            double _IOCost = cost1 + card1 * cost2;
+            double _CPUCost = card1 * card2 * 1.0; // cpu process predicate is 1.0
+            return _IOCost + _CPUCost;
         }
     }
 
@@ -176,7 +179,41 @@ public class JoinOptimizer {
                                                    Map<String, Integer> tableAliasToId) {
         int card = 1;
         // some code goes here
-        return card <= 0 ? 1 : card;
+        int _t1_id = tableAliasToId.get(table1Alias);
+        int _t2_id = tableAliasToId.get(table2Alias);
+
+        String _t1_name = Database.getCatalog().getTableName( _t1_id );
+        String _t2_name = Database.getCatalog().getTableName( _t2_id );
+
+        TableStats _t1_stat = stats.get(_t1_name);
+        TableStats _t2_stat = stats.get(_t2_name);
+
+        if (t1pkey && t2pkey)
+        {
+            card = (int) (card1 *card2 * 0.7);
+        }
+        else if (t1pkey || t2pkey )
+        {
+
+            if (t1pkey)
+            {
+                card = card2;
+
+            }
+            if (t2pkey)
+            {
+                card = card1;
+
+            }
+        }
+        else
+        {
+            card = Math.max(card1, card2 );
+        }
+
+
+
+        return card ;
     }
 
     /**
@@ -238,6 +275,12 @@ public class JoinOptimizer {
 
         // some code goes here
         //Replace the following
+
+
+
+
+
+
         return joins;
     }
 
