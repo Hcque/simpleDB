@@ -57,7 +57,7 @@ public class LockManager {
         }
         LockQue _cur_que = _locks.get(pageid);
         while (_cur_que.writer_entered || _cur_que.num_readers == MAX_READERS )
-            synchronized (this) { _cur_que._r.wait(100); }
+            _cur_que._r.await();
         _cur_que.num_readers ++ ;
         if ( _cur_que._tid_to_lock.containsKey(txnid) ) throw new IllegalArgumentException();
         _cur_que._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
@@ -76,11 +76,11 @@ public class LockManager {
         }
         LockQue _cur_que = _locks.get(pageid);
         while (_cur_que.writer_entered )
-            synchronized (this) {_cur_que._r.wait(100); }
+             _cur_que._r.await();
 
         _cur_que.writer_entered = true;
         while (_cur_que.num_readers > 0 )
-            synchronized (this) {_cur_que._w.wait(100);}
+            _cur_que._w.await();
 
         _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.EXCLUSIVE));
         return true;
@@ -118,14 +118,14 @@ public class LockManager {
         {
             if (_cur_que.num_readers == 0)
             {
-                _cur_que._w.notify();
+                _cur_que._w.signal();
             }
         }
         else
         {
             if (_cur_que.num_readers == MAX_READERS - 1)
             {
-                _cur_que._r.notify();
+                _cur_que._r.signal();
             }
         }
 
@@ -138,8 +138,7 @@ public class LockManager {
         LockQue _cur_que = _locks.get(pageid);
         _cur_que.writer_entered = false;
         _cur_que._tid_to_lock.remove(txnid);
-        _locks.get(pageid)._r.notifyAll();
-
+        _locks.get(pageid)._r.signalAll();
     }
 
 

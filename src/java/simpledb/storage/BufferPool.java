@@ -13,6 +13,7 @@ import javax.xml.crypto.Data;
 import java.io.*;
 
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -38,6 +39,30 @@ public class BufferPool {
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
+
+    class _Node implements Comparable<_Node>
+    {
+        long _ts;
+        PageId _pid;
+
+        public _Node(long _ts, PageId _pid) {
+            super();
+            this._ts = _ts;
+            this._pid = _pid;
+        }
+
+
+        @Override
+        public int compareTo(_Node node) {
+            if (this._ts < node._ts) return -1;
+            else if ( this._ts == node._ts ) return 0;
+            else return 1;
+        }
+    }
+
+    PriorityQueue<_Node> que = new PriorityQueue<>(); // LRU
+    int _global_ts = 0;
+
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -89,26 +114,26 @@ public class BufferPool {
 
         long _start = System.currentTimeMillis();
 
-        while (true)
-        {
-            try {
-                if (!writeLock && _lk_manager.lockShared(tid, pid)) {
-                    break;
-                }
-                if (writeLock && _lk_manager.lockExclusive(tid, pid)) {
-                    break;
-                }
-            }
-            catch (InterruptedException e)
-            {
-                e.printStackTrace();
-            }
-            if (System.currentTimeMillis() - _start > LockManager.MAX_LOCK_WAIT_TIME )
-            {
-                throw new TransactionAbortedException();
-
-            }
-        }
+//        while (true)
+//        {
+//            try {
+//                if (!writeLock && _lk_manager.lockShared(tid, pid)) {
+//                    break;
+//                }
+//                if (writeLock && _lk_manager.lockExclusive(tid, pid)) {
+//                    break;
+//                }
+//            }
+//            catch (InterruptedException e)
+//            {
+//                e.printStackTrace();
+//            }
+//            if (System.currentTimeMillis() - _start > LockManager.MAX_LOCK_WAIT_TIME )
+//            {
+//                throw new TransactionAbortedException();
+//
+//            }
+//        }
 
         if (pages_.containsKey(pid))
         {
@@ -119,8 +144,18 @@ public class BufferPool {
             // read from disk?
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page page = dbfile.readPage(pid);
+
+            //
+            if (pages_.size() == numPages_)
+            {
+                evictPage();
+                assert numPages_ -1 == pages_.size() ;
+            }
+
+
             pages_.put(pid, page);
-            // should has size bounded // evictoage
+            que.add(new _Node(_global_ts ++ , pid));
+
             return page;
         }    
         
@@ -253,6 +288,16 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
+        for (PageId pid: pages_.keySet() )
+        {
+            Page page = pages_.get(pid);
+            if (page.isDirty() != null )
+            {
+                flushPage(page.getId());
+            }
+        }
+
+
 
     }
 
@@ -267,7 +312,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
-
+        pages_.remove(pid);
     }
 
     /**
@@ -277,9 +322,9 @@ public class BufferPool {
     private synchronized void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
-        DbFile dbfile =  Database.getCatalog().getDatabaseFile( pid.getTableId() );
-
+        DbFile dbfile = Database.getCatalog().getDatabaseFile( pid.getTableId() );
         Page p = dbfile.readPage(pid);
+        if ( p.isDirty() == null ) return;
         // WAL
         TransactionId  dirtier = p.isDirty();
         if (dirtier != null)
@@ -288,9 +333,8 @@ public class BufferPool {
             Database.getLogFile().force();
         }
 
-
         dbfile.writePage( pages_.get(pid) );
-
+        p.markDirty(false, null);
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -301,7 +345,7 @@ public class BufferPool {
         for (PageId pid: pages_.keySet() )
         {
             Page page = pages_.get(pid);
-            if (page.isDirty() != null)
+            if (page.isDirty() == tid)
             {
                 flushPage(page.getId());
             }
@@ -315,6 +359,17 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+
+        _Node _node = que.poll();
+        PageId _pid = _node._pid;
+        try {
+            flushPage(_pid);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        pages_.remove(_pid);
 
     }
 
