@@ -32,8 +32,6 @@ public class LockManager {
 //            r = new Semaphore(LockManager.MAX_READERS);
 //            w = new Semaphore(1);
         }
-
-
     }
 
     public static final int MAX_READERS = 10;
@@ -46,45 +44,45 @@ public class LockManager {
 
 
     public synchronized boolean lockShared(TransactionId txnid, PageId pageid) throws InterruptedException {
-
-        if (!_locks.containsKey(pageid))
-        {
-            Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
-            _locks.put(pageid, new LockQue());
-            _locks.get(pageid).num_readers ++ ;
-            _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
+            if (!_locks.containsKey(pageid)) {
+                Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
+                _locks.put(pageid, new LockQue());
+                _locks.get(pageid).num_readers++;
+                _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
+                return true;
+            }
+            LockQue _cur_que = _locks.get(pageid);
+            while (_cur_que.writer_entered || _cur_que.num_readers == MAX_READERS)
+                _cur_que._r.await();
+            _cur_que.num_readers++;
+            if (_cur_que._tid_to_lock.containsKey(txnid)) throw new IllegalArgumentException();
+            _cur_que._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
             return true;
         }
-        LockQue _cur_que = _locks.get(pageid);
-        while (_cur_que.writer_entered || _cur_que.num_readers == MAX_READERS )
-            _cur_que._r.await();
-        _cur_que.num_readers ++ ;
-        if ( _cur_que._tid_to_lock.containsKey(txnid) ) throw new IllegalArgumentException();
-        _cur_que._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
-        return true;
 
-    }
 
     public synchronized boolean lockExclusive(TransactionId txnid, PageId pageid) throws InterruptedException {
-        if (!_locks.containsKey(pageid))
-        {
-            Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
-            _locks.put(pageid, new LockQue());
-            _locks.get(pageid).writer_entered = true ;
+
+            if (!_locks.containsKey(pageid)) {
+                Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
+                _locks.put(pageid, new LockQue());
+                _locks.get(pageid).writer_entered = true;
+                _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.EXCLUSIVE));
+                return true;
+            }
+            LockQue _cur_que = _locks.get(pageid);
+            while (_cur_que.writer_entered)
+                _cur_que._r.await();
+
+            _cur_que.writer_entered = true;
+            while (_cur_que.num_readers > 0)
+                _cur_que._w.await();
+
             _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.EXCLUSIVE));
             return true;
         }
-        LockQue _cur_que = _locks.get(pageid);
-        while (_cur_que.writer_entered )
-             _cur_que._r.await();
 
-        _cur_que.writer_entered = true;
-        while (_cur_que.num_readers > 0 )
-            _cur_que._w.await();
 
-        _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.EXCLUSIVE));
-        return true;
-    }
 
     public synchronized boolean lockUpgrade(TransactionId txnid, PageId pageid)
     {
@@ -108,37 +106,38 @@ public class LockManager {
 
     public synchronized void unlockRead(TransactionId txnid, PageId pageid)
     {
-        if (!_locks.containsKey(pageid)) throw new IllegalArgumentException();
-        LockQue _cur_que = _locks.get(pageid);
-        _cur_que.num_readers -- ;
-        _cur_que._tid_to_lock.remove(txnid);
-        // V operation
 
-        if (_cur_que.writer_entered )
-        {
-            if (_cur_que.num_readers == 0)
-            {
-                _cur_que._w.signal();
+            if (!_locks.containsKey(pageid)) throw new IllegalArgumentException();
+            LockQue _cur_que = _locks.get(pageid);
+            _cur_que.num_readers--;
+            _cur_que._tid_to_lock.remove(txnid);
+            // V operation
+
+            if (_cur_que.writer_entered) {
+                if (_cur_que.num_readers == 0) {
+                    _cur_que._w.signal();
+                }
+            } else {
+                if (_cur_que.num_readers == MAX_READERS - 1) {
+                    _cur_que._r.signal();
+                }
             }
-        }
-        else
-        {
-            if (_cur_que.num_readers == MAX_READERS - 1)
-            {
-                _cur_que._r.signal();
-            }
+
         }
 
 
-    }
 
     public synchronized void unlockWrite(TransactionId txnid, PageId pageid)
     {
-        if (!_locks.containsKey(pageid)) throw new IllegalArgumentException();
-        LockQue _cur_que = _locks.get(pageid);
-        _cur_que.writer_entered = false;
-        _cur_que._tid_to_lock.remove(txnid);
-        _locks.get(pageid)._r.signalAll();
+
+            if (!_locks.containsKey(pageid)) throw new IllegalArgumentException();
+            LockQue _cur_que = _locks.get(pageid);
+            _cur_que.writer_entered = false;
+            _cur_que._tid_to_lock.remove(txnid);
+            _locks.get(pageid)._r.signalAll();
+
+
+
     }
 
 
@@ -158,6 +157,5 @@ public class LockManager {
             unlock(txnid, pid);
         }
     }
-
 
 }

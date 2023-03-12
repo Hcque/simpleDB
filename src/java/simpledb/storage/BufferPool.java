@@ -114,26 +114,26 @@ public class BufferPool {
 
         long _start = System.currentTimeMillis();
 
-//        while (true)
-//        {
-//            try {
-//                if (!writeLock && _lk_manager.lockShared(tid, pid)) {
-//                    break;
-//                }
-//                if (writeLock && _lk_manager.lockExclusive(tid, pid)) {
-//                    break;
-//                }
-//            }
-//            catch (InterruptedException e)
-//            {
-//                e.printStackTrace();
-//            }
-//            if (System.currentTimeMillis() - _start > LockManager.MAX_LOCK_WAIT_TIME )
-//            {
-//                throw new TransactionAbortedException();
-//
-//            }
-//        }
+        while (true)
+        {
+            try {
+                if (!writeLock && _lk_manager.lockShared(tid, pid)) {
+                    break;
+                }
+                if (writeLock && _lk_manager.lockExclusive(tid, pid)) {
+                    break;
+                }
+            }
+            catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+            if (System.currentTimeMillis() - _start > LockManager.MAX_LOCK_WAIT_TIME )
+            {
+                throw new TransactionAbortedException();
+
+            }
+        }
 
         if (pages_.containsKey(pid))
         {
@@ -151,7 +151,6 @@ public class BufferPool {
                 evictPage();
                 assert numPages_ -1 == pages_.size() ;
             }
-
 
             pages_.put(pid, page);
             que.add(new _Node(_global_ts ++ , pid));
