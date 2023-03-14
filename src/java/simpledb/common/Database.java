@@ -26,7 +26,8 @@ public class Database {
     private final LogFile _logfile;
 
     private Database() {
-        _lockmanager = new LockManager();
+        _lockmanager = new LockManager(true); // enable cycle detection
+
         _catalog = new Catalog();
         _bufferpool = new BufferPool(BufferPool.DEFAULT_PAGES);
         LogFile tmp = null;

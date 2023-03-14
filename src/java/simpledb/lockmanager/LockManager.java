@@ -1,20 +1,21 @@
 package simpledb.lockmanager;
 
-import simpledb.common.Permissions;
-import simpledb.storage.Page;
 import simpledb.storage.PageId;
 import simpledb.transaction.TransactionId;
 
 import java.util.Map;
 import java.util.HashMap;
 
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class LockManager {
+
+    private Timer myTimer;
 
     class LockQue
     {
@@ -29,8 +30,94 @@ public class LockManager {
         LockQue()
         {
             _tid_to_lock = new HashMap<>();
-//            r = new Semaphore(LockManager.MAX_READERS);
-//            w = new Semaphore(1);
+        }
+
+        public synchronized boolean lockShared(TransactionId txnid) {
+            lock.lock();
+
+            try {
+                while (writer_entered || num_readers == MAX_READERS)
+                    // 等待写锁
+                    _r.await();
+                // 写锁等待释放（如果有）
+                num_readers++;
+                if (_tid_to_lock.containsKey(txnid)) throw new IllegalArgumentException();
+                _tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
+                lock.unlock();
+                return true;
+            }
+            catch (InterruptedException e)
+            {
+                lock.unlock();
+                e.printStackTrace();
+            }
+            lock.unlock();
+            return false;
+        }
+
+        public synchronized boolean lockExclusive(TransactionId txnid) {
+            try {
+                lock.lock();
+
+                if (_tid_to_lock.size() == 1 && _tid_to_lock.containsKey(txnid))
+                {
+                    lock.unlock();
+                    return true;
+                }
+                while (writer_entered)
+                    // 读锁等待写锁
+                    _r.await(); // 停在此处， 写锁没有释放，tid insert tuples
+                //
+                writer_entered = true;
+                while (num_readers > 0)
+                    // 等待写锁
+                    _w.await();
+
+                _tid_to_lock.put(txnid, new PageLock(PageLock.LockType.EXCLUSIVE));
+                lock.unlock();
+                return true;
+            }
+            catch (InterruptedException e)
+            {
+                lock.unlock();
+                e.printStackTrace();
+
+            }
+            return false;
+        }
+
+        public synchronized void unlockRead(TransactionId txnid)
+        {
+            // V operation
+//            try {
+                lock.lock();
+            _tid_to_lock.remove(txnid);
+            if (writer_entered) {
+                    if (num_readers == 0) {
+                        // 写等待释放
+                        _w.signal();
+                    }
+                } else {
+                    if (num_readers == MAX_READERS - 1) {
+                        // careful
+                        _r.signal();
+                    }
+                }
+            lock.unlock();
+
+//            }
+
+        }
+
+        public synchronized void unlockWrite(TransactionId txnid)
+        {
+            lock.lock();
+            writer_entered = false;
+            _tid_to_lock.remove(txnid);
+            // 所有读等待释放
+            _r.signalAll();
+            lock.unlock();
+
         }
     }
 
@@ -38,26 +125,41 @@ public class LockManager {
     public static final long MAX_LOCK_WAIT_TIME = 20000000;
     private Map<PageId, LockQue> _locks;
 
-    public LockManager() {
+    public LockManager(boolean _enable_lock_cyc_detect) {
         _locks = new ConcurrentHashMap<>();
+        if (_enable_lock_cyc_detect) {
+            myTimer = new Timer();
+            myTimer.schedule(new MyTimerTask(this), 0, 2000);
+        }
     }
 
 
-    public synchronized boolean lockShared(TransactionId txnid, PageId pageid) throws InterruptedException {
-            if (!_locks.containsKey(pageid)) {
-                Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
-                _locks.put(pageid, new LockQue());
-                _locks.get(pageid).num_readers++;
-                _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
-                return true;
-            }
-            LockQue _cur_que = _locks.get(pageid);
-            while (_cur_que.writer_entered || _cur_que.num_readers == MAX_READERS)
-                _cur_que._r.await();
-            _cur_que.num_readers++;
-            if (_cur_que._tid_to_lock.containsKey(txnid)) throw new IllegalArgumentException();
-            _cur_que._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.SHARE));
-            return true;
+    private class MyTimerTask extends TimerTask {
+
+
+        MyTimerTask(LockManager _lm)
+        {
+
+        }
+
+        @Override
+        public void run() {
+            // 线程运行的代码
+//            System.out.println( i++ );
+        }
+    }
+
+
+
+
+
+    public synchronized boolean lockShared(TransactionId txnid, PageId pageid) {
+        if (!_locks.containsKey(pageid)) {
+            Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
+            _locks.put(pageid, new LockQue());
+        }
+         return _locks.get(pageid).lockShared(txnid);
+
         }
 
 
@@ -66,23 +168,9 @@ public class LockManager {
             if (!_locks.containsKey(pageid)) {
                 Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
                 _locks.put(pageid, new LockQue());
-                _locks.get(pageid).writer_entered = true;
-                _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.EXCLUSIVE));
-                return true;
             }
-            LockQue _cur_que = _locks.get(pageid);
-            while (_cur_que.writer_entered)
-                _cur_que._r.await();
-
-            _cur_que.writer_entered = true;
-            while (_cur_que.num_readers > 0)
-                _cur_que._w.await();
-
-            _locks.get(pageid)._tid_to_lock.put(txnid, new PageLock(PageLock.LockType.EXCLUSIVE));
-            return true;
+            return _locks.get(pageid).lockExclusive(txnid);
         }
-
-
 
     public synchronized boolean lockUpgrade(TransactionId txnid, PageId pageid)
     {
@@ -96,48 +184,12 @@ public class LockManager {
         LockQue _cur_que = _locks.get(pageid);
         if ( _cur_que.num_readers == 0 )
         {
-            unlockWrite(txnid, pageid);
+            _cur_que.unlockWrite(txnid);
         }
         else
         {
-            unlockRead(txnid, pageid);
+            _cur_que.unlockRead(txnid);
         }
-    }
-
-    public synchronized void unlockRead(TransactionId txnid, PageId pageid)
-    {
-
-            if (!_locks.containsKey(pageid)) throw new IllegalArgumentException();
-            LockQue _cur_que = _locks.get(pageid);
-            _cur_que.num_readers--;
-            _cur_que._tid_to_lock.remove(txnid);
-            // V operation
-
-            if (_cur_que.writer_entered) {
-                if (_cur_que.num_readers == 0) {
-                    _cur_que._w.signal();
-                }
-            } else {
-                if (_cur_que.num_readers == MAX_READERS - 1) {
-                    _cur_que._r.signal();
-                }
-            }
-
-        }
-
-
-
-    public synchronized void unlockWrite(TransactionId txnid, PageId pageid)
-    {
-
-            if (!_locks.containsKey(pageid)) throw new IllegalArgumentException();
-            LockQue _cur_que = _locks.get(pageid);
-            _cur_que.writer_entered = false;
-            _cur_que._tid_to_lock.remove(txnid);
-            _locks.get(pageid)._r.signalAll();
-
-
-
     }
 
 
@@ -157,5 +209,24 @@ public class LockManager {
             unlock(txnid, pid);
         }
     }
+
+
+    // methods for lock detection
+    public synchronized void buildGraph()
+    {
+
+    }
+
+    public synchronized boolean hasCycle()
+    {
+        return false;
+    }
+
+
+    public synchronized void resolveCycle()
+    {
+        return;
+    }
+
 
 }

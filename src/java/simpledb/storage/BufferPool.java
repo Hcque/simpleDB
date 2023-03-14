@@ -3,13 +3,10 @@ package simpledb.storage;
 import simpledb.common.Database;
 import simpledb.common.Permissions;
 import simpledb.common.DbException;
-import simpledb.common.DeadlockException;
 import simpledb.lockmanager.LockManager;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
-import javax.swing.*;
-import javax.xml.crypto.Data;
 import java.io.*;
 
 import java.util.List;
@@ -135,15 +132,19 @@ public class BufferPool {
             }
         }
 
+        Page page = null;
         if (pages_.containsKey(pid))
         {
-            return pages_.get(pid);
+
+            page = pages_.get(pid);
+//            _lk_manager.unlock(tid, pid);
+            return page;
         }
         else 
         {
             // read from disk?
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
-            Page page = dbfile.readPage(pid);
+            page = dbfile.readPage(pid);
 
             //
             if (pages_.size() == numPages_)
@@ -155,6 +156,7 @@ public class BufferPool {
             pages_.put(pid, page);
             que.add(new _Node(_global_ts ++ , pid));
 
+//            _lk_manager.unlock(tid, pid);
             return page;
         }    
         
@@ -218,9 +220,26 @@ public class BufferPool {
                     }
                 }
             }
+            else
+            {
+                if (page.isDirty() != null) {
+                    try {
+                        page.setBeforeImage();
+                        flushPage(page.getId());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+            }
 
             // release lock of all pages by tid
 
+        }
+
+        // unlock
+        for (PageId pid : pages_.keySet()) {
+            Database.getLockManager().unlock(tid, pid);
         }
 
     }

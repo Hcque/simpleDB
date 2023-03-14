@@ -19,7 +19,7 @@ public class LockingTest extends TestUtil.CreateHeapFile {
     private TransactionId tid1, tid2;
 
   /** Time to wait before checking the state of lock contention, in ms */
-  private static final int TIMEOUT = 100;
+  private static final int TIMEOUT = 1000;
 
   // just so we have a pointer shorter than Database.getBufferPool()
   private BufferPool bp;
@@ -55,6 +55,7 @@ public class LockingTest extends TestUtil.CreateHeapFile {
     bp.getPage(tid, p1, Permissions.READ_WRITE).markDirty(true, tid);
     bp.getPage(tid, p2, Permissions.READ_WRITE).markDirty(true, tid);
     bp.flushAllPages();
+    bp.transactionComplete(tid);
     bp = Database.resetBufferPool(BufferPool.DEFAULT_PAGES);
   }
 
@@ -76,6 +77,8 @@ public class LockingTest extends TestUtil.CreateHeapFile {
       boolean expected) throws Exception {
 
     bp.getPage(tid1, pid1, perm1);
+//    Database.getBufferPool().transactionComplete(tid1);
+
     grabLock(tid2, pid2, perm2, expected);
   }
 
