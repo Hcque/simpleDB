@@ -19,7 +19,7 @@ public class LockingTest extends TestUtil.CreateHeapFile {
     private TransactionId tid1, tid2;
 
   /** Time to wait before checking the state of lock contention, in ms */
-  private static final int TIMEOUT = 1000;
+  private static final int TIMEOUT = 10;
 
   // just so we have a pointer shorter than Database.getBufferPool()
   private BufferPool bp;

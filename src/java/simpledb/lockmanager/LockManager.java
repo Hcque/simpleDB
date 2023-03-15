@@ -90,7 +90,7 @@ public class LockManager {
         {
             // V operation
 //            try {
-                lock.lock();
+            lock.lock();
             _tid_to_lock.remove(txnid);
             if (writer_entered) {
                     if (num_readers == 0) {
@@ -157,6 +157,14 @@ public class LockManager {
         if (!_locks.containsKey(pageid)) {
             Map<TransactionId, PageLock> _locks_cur_pid = new HashMap<>();
             _locks.put(pageid, new LockQue());
+        }
+        Map<TransactionId, PageLock> _tid_to_lock = _locks.get(pageid)._tid_to_lock;
+        if (_tid_to_lock.containsKey(txnid))
+        {
+            if (_tid_to_lock.get(txnid).get_lock_type() == PageLock.LockType.EXCLUSIVE )
+            {
+                return true;
+            }
         }
          return _locks.get(pageid).lockShared(txnid);
 
