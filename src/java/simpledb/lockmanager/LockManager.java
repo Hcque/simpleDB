@@ -13,6 +13,11 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+
+// ref:
+// https://github.com/cmu-db/bustub/blob/master/src/include/common/rwlatch.h
+
+
 public class LockManager {
 
     private Timer myTimer;
